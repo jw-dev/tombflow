@@ -1,6 +1,6 @@
-# tombscripter
+# tombflow
  
-This is a pre-alpha library and command-line application for parsing and manipulating Tomb Raider script files (or "gameflow"), written in **Go**. It is fast (enough), dependency-free and runs anywhere you can get a Go runtime. It has support for the following games:
+This project is a pre-alpha library and command-line application for parsing and manipulating Tomb Raider script files (or "gameflow"), written in **Go**. It is fast (enough), dependency-free and runs anywhere you can get a Go runtime. It has support for the following games:
 - Tomb Raider II (PC) 
 - Tomb Raider III (PC) 
 

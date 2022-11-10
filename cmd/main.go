@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jw-dev/tombscripter/pkg/script"
+	"github.com/jw-dev/tombflow/pkg/script"
 )
 
 func fatal(err string) {

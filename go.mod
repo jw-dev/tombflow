@@ -1,3 +1,3 @@
-module github.com/jw-dev/tombscripter
+module github.com/jw-dev/tombflow
 
 go 1.19
