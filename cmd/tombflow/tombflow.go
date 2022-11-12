@@ -30,8 +30,8 @@ func main() {
 		fmt.Printf("  Keys: %v\n", level.Keys)
 		fmt.Printf("  Pickups: %v\n", level.Pickups)
 		fmt.Println("  Flow: ")
-		for j, op := range level.Flow {
-			fmt.Printf("    %v: %v\n", j, s.FormatOp(op))
+		for j, cmd := range level.Flow {
+			fmt.Printf("    %v: %v\n", j, s.FormatCommand(cmd))
 		}
 	}
 }

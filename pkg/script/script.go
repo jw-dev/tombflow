@@ -40,16 +40,10 @@ const (
 	OpSecrets
 	OpKillToComplete
 	OpRemoveAmmo
-)
-
-const (
-	ELevel Event = 1000 + iota
-	ESavedGame
-	ECutscene
-	EFmv
-	EDemo
-	EExittoTitle
-	EExitGame
+	OpSavedGame
+	OpExitToTitle
+	OpExitGame
+	OpDisable = -1
 )
 
 var tLanguages = [...]string{
@@ -100,9 +94,17 @@ var tEvents = [...]string{
 	"Exit Game",
 }
 
-// hasOpcodeArgument is a list of opcodes that have some argument.
-// This is needed because when parsing the gameflow, the following uint16 is the argument only for these opcodes.
-var hasOpcodeArgument = []Opcode{
+var commandOpcodeMap = map[uint16]Opcode{
+	0: OpLevel,
+	1: OpSavedGame,
+	2: OpCine,
+	3: OpFmv,
+	4: OpDemo,
+	5: OpExitToTitle,
+	6: OpExitGame,
+}
+
+var opcodeHasArgument = []Opcode{
 	OpPicture,
 	OpFmv,
 	OpLevel,
@@ -118,14 +120,6 @@ var hasOpcodeArgument = []Opcode{
 	OpSecrets,
 }
 
-// hasEventArgument is a list of Events that have an argument.
-var hasEventArgument = []Event{
-	ELevel,
-	ESavedGame,
-	ECutscene,
-	EFmv,
-}
-
 type Language uint8
 
 func (l Language) String() string {
@@ -135,7 +129,16 @@ func (l Language) String() string {
 	return "Unknown"
 }
 
-type Opcode uint16
+type Opcode int32
+
+func (o Opcode) hasArg() bool {
+	for i := 0; i < len(opcodeHasArgument); i++ {
+		if opcodeHasArgument[i] == o {
+			return true
+		}
+	}
+	return false
+}
 
 func (o Opcode) String() string {
 	if int(o) < len(tOpcodes) {
@@ -144,44 +147,19 @@ func (o Opcode) String() string {
 	return "Unknown"
 }
 
-func (o Opcode) hasArg() bool {
-	for i := range hasOpcodeArgument {
-		if o == hasOpcodeArgument[i] {
-			return true
-		}
-	}
-	return false
-}
-
-type Event uint16
-
-func (e Event) String() string {
-	if int(e) < len(tEvents) {
-		return tEvents[e]
-	}
-	return "Unknown"
-}
-
-func (e Event) HasArg() bool {
-	for i := range hasEventArgument {
-		if e == hasEventArgument[i] {
-			return true
-		}
-	}
-	return false
-}
-
-type Ev struct {
-	Typ Event
-	Arg uint8
-}
-
-type Op struct {
-	Typ Opcode
+type Command struct {
+	Op  Opcode
 	Arg uint16
 }
 
-type Sequence []Op
+func (c Command) String() string {
+	if c.Op.hasArg() {
+		return fmt.Sprintf("%v %v", c.Op, c.Arg)
+	}
+	return c.Op.String()
+}
+
+type Sequence []Command
 
 type Level struct {
 	Name    string
@@ -253,24 +231,23 @@ func Read(r io.Reader) *Script {
 	}
 }
 
-// FormatOpcode properly formats an Opcode, substituting args for their appropriate values.
-// For example, "LoadLevel 0" would be formatted as "Load Level: JUNGLE.TR2 (Jungle)" instead (in TRIII).
-func (s Script) FormatOp(o Op) string {
-	if !o.Typ.hasArg() {
-		return fmt.Sprintf("%v", o.Typ)
+// FormatCommand formats a comand, replacing any arguments with the relevent item. For example, (LoadLevel 0) would return "Load Level JUNGLE.PSX" (in TRIII)
+func (s Script) FormatCommand(c Command) string {
+	if !c.Op.hasArg() {
+		return c.Op.String()
 	}
-	switch o.Typ {
+	switch c.Op {
 	case OpLoadPic:
-		return fmt.Sprintf("%v '%v'", o.Typ, s.Levels[o.Arg].Chapter)
+		return fmt.Sprintf("%v '%v'", c.Op, s.Levels[c.Arg].Chapter)
 	case OpFmv:
-		return fmt.Sprintf("%v '%v'", o.Typ, s.Fmvs[o.Arg])
+		return fmt.Sprintf("%v '%v'", c.Op, s.Fmvs[c.Arg])
 	case OpLevel:
-		level := s.Levels[o.Arg]
-		return fmt.Sprintf("%v '%v' (%v)", o.Typ, level.Path, level.Name)
+		level := s.Levels[c.Arg]
+		return fmt.Sprintf("%v '%v' (%v)", c.Op, level.Path, level.Name)
 	case OpCine:
-		return fmt.Sprintf("%v '%v'", o.Typ, s.Cutscenes[o.Arg])
+		return fmt.Sprintf("%v '%v'", c.Op, s.Cutscenes[c.Arg])
 	default:
-		return fmt.Sprintf("%v %v", o.Typ, o.Arg)
+		return fmt.Sprintf("%v %v", c.Op, c.Arg)
 	}
 }
 
@@ -364,7 +341,7 @@ func readSequenceArray(r io.Reader, count uint16) []Sequence {
 				i = i + 1
 				arg = chunk[i]
 			}
-			seq = append(seq, Op{Typ: typ, Arg: arg})
+			seq = append(seq, Command{Op: typ, Arg: arg})
 		}
 
 		seqs = append(seqs, seq)
