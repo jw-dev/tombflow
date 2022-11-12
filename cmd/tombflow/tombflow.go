@@ -22,6 +22,7 @@ func main() {
 	if err != nil {
 		fatal(fmt.Sprintf("Error opening file: %v", err))
 	}
+	defer f.Close()
 
 	s := script.Read(f)
 	for i, level := range s.Levels {
