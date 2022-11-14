@@ -286,50 +286,85 @@ func readHeader(r io.Reader) *header {
 	return &h
 }
 
-func readOffsetsAndSize(r io.Reader, count uint16) (off []uint16, sz uint16) {
-	off = make([]uint16, count)
-	binary.Read(r, binary.LittleEndian, &off)
-	binary.Read(r, binary.LittleEndian, &sz)
-	return
+type multiByteArray struct {
+	offsets []uint16
+	data    []uint8
+}
+
+func newMultiByteArray(offsets []uint16, data []uint8) *multiByteArray {
+	return &multiByteArray{
+		offsets,
+		data,
+	}
+}
+
+func (m multiByteArray) Strings(xor byte) []string {
+	strs := []string{}
+
+	for i, offset := range m.offsets {
+		bytes := []uint8{}
+		switch i {
+		case len(m.offsets) - 1:
+			bytes = m.data[offset:]
+		default:
+			to := m.offsets[i+1]
+			bytes = m.data[offset:to]
+		}
+		if xor > 0 {
+			for i := range bytes {
+				bytes[i] ^= xor
+			}
+		}
+		strs = append(strs, string(bytes))
+	}
+
+	return strs
+}
+
+func (m multiByteArray) U16() [][]uint16 {
+	u16 := make([]uint16, len(m.data)/2)
+
+	for i := 0; i < len(u16); i++ {
+		u16[i] = binary.LittleEndian.Uint16(m.data[i*2:])
+	}
+
+	chunks := [][]uint16{}
+
+	for i, offset := range m.offsets {
+		if i == len(m.offsets)-1 {
+			chunks = append(chunks, u16[offset/2:])
+			break
+		}
+		to := m.offsets[i+1]
+		chunks = append(chunks, u16[offset/2:to/2])
+	}
+
+	return chunks
+}
+
+func readMultiByteArray(r io.Reader, count uint16) *multiByteArray {
+	offsets := make([]uint16, count)
+	binary.Read(r, binary.LittleEndian, &offsets)
+
+	size := uint16(0)
+	binary.Read(r, binary.LittleEndian, &size)
+
+	data := make([]uint8, size)
+	binary.Read(r, binary.LittleEndian, &data)
+
+	return newMultiByteArray(offsets, data)
 }
 
 func readStringArray(r io.Reader, count uint16, xor byte) []string {
-	strs := make([]string, 0)
-	off, sz := readOffsetsAndSize(r, count)
-	data := make([]byte, sz)
-	binary.Read(r, binary.LittleEndian, &data)
-	if xor > 0 {
-		for i := range data {
-			data[i] ^= xor
-		}
-	}
-	for i, offset := range off {
-		if i == len(off)-1 {
-			strs = append(strs, string(data[offset:]))
-			break
-		}
-		to := off[i+1]
-		strs = append(strs, string(data[offset:to]))
-	}
-	return strs
+	m := readMultiByteArray(r, count)
+	return m.Strings(xor)
 }
 
 func readSequenceArray(r io.Reader, count uint16) []Sequence {
 	seqs := []Sequence{}
-	chunks := make([][]uint16, 0)
 
-	off, size := readOffsetsAndSize(r, count)
-	data := make([]uint16, size/2)
-	binary.Read(r, binary.LittleEndian, &data)
-
-	for i, offset := range off {
-		if i == len(off)-1 {
-			chunks = append(chunks, data[offset/2:])
-			break
-		}
-		to := off[i+1]
-		chunks = append(chunks, data[offset/2:to/2])
-	}
+	m := readMultiByteArray(r, count)
+	chunks := m.U16()
 
 	for _, chunk := range chunks {
 		seq := Sequence{}
