@@ -119,6 +119,10 @@ var opcodeHasArgument = []Opcode{
 	OpSecrets,
 }
 
+var legalVersions = []uint32{
+	3, // TOMB2 / TOMB3 PC
+}
+
 type Language uint8
 
 func (l Language) String() string {
@@ -312,4 +316,13 @@ func joinLevels(names []string, paths []string, chaps []string, flow []Sequence,
 	}
 
 	return l
+}
+
+func isLegalVersion(version uint32) bool {
+	for _, v := range legalVersions {
+		if v == version {
+			return true
+		}
+	}
+	return false
 }

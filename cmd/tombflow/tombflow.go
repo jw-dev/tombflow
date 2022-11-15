@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/jw-dev/tombflow/pkg/script"
@@ -24,7 +25,10 @@ func main() {
 	}
 	defer f.Close()
 
-	s := script.Read(f)
+	s, err := script.Read(f)
+	if err != nil {
+		log.Fatalf("Critical error reading script\n%v\n", err)
+	}
 	for i, level := range s.Levels {
 		fmt.Printf("Level %v: %v (%v)\n", i, level.Name, level.Path)
 		fmt.Printf("  Puzzles: %v\n", level.Puzzles)

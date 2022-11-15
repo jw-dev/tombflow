@@ -2,11 +2,19 @@ package script
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 )
 
-func Read(r io.Reader) *Script {
-	head := readHeader(r)
+func Read(r io.Reader) (*Script, error) {
+	head, err := readHeader(r)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read header: %w", err)
+	}
+	if !isLegalVersion(head.Version) {
+		return nil, fmt.Errorf("unsupported or unrecognized script version %v", head.Version)
+	}
+
 	levelNames := readStringArray(r, head.NumLevels, head.XorKey)
 	chapterPaths := readStringArray(r, head.NumChapterScreens, head.XorKey)
 	titlePaths := readStringArray(r, head.NumTitles, head.XorKey)
@@ -49,13 +57,15 @@ func Read(r io.Reader) *Script {
 		Cutscenes:    cutscenePaths,
 		GameStrings:  gameStrings,
 		ExtraStrings: extraStrings,
-	}
+	}, nil
 }
 
-func readHeader(r io.Reader) *header {
+func readHeader(r io.Reader) (*header, error) {
 	h := header{}
-	binary.Read(r, binary.LittleEndian, &h)
-	return &h
+	if err := binary.Read(r, binary.LittleEndian, &h); err != nil {
+		return nil, err
+	}
+	return &h, nil
 }
 
 func readMultiByteArray(r io.Reader, count uint16) *multiByteArray {
